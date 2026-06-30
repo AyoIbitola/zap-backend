@@ -34,7 +34,7 @@ import { LightningNodeError } from './provider.interface.js'
 interface LNbitsCreateResponse {
   payment_hash: string
   payment_request: string
-  expiry: string        // ISO datetime — confirmed above
+  expiry: string | number | null  // ISO datetime (real backend) or Unix seconds (FakeWallet)
   amount: number        // millisatoshis — confirmed above
   checking_id: string
 }
@@ -91,9 +91,13 @@ export class LNbitsProvider implements LightningProvider {
 
     const data = (await res.json()) as LNbitsCreateResponse
 
-    // expiry is an ISO datetime string WITHOUT timezone suffix, but LNbits always stores UTC.
-    // Append 'Z' to force UTC parsing — without it, Node.js treats it as local time.
-    const expiresAt = new Date(data.expiry + 'Z')
+    // LNbits real backend returns expiry as ISO string without 'Z' suffix (UTC) — append 'Z'.
+    // LNbits FakeWallet returns expiry as a Unix timestamp (seconds). Handle both.
+    const expiresAt = data.expiry == null
+      ? new Date(Date.now() + expirySecs * 1000)
+      : typeof data.expiry === 'number'
+        ? new Date(data.expiry * 1000)
+        : new Date(String(data.expiry) + 'Z')
 
     return {
       paymentHash: data.payment_hash,
