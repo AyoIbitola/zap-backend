@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Publisher {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash   String
+  displayName    String
+  bio            String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  articles       Article[]
+  payoutRequests PayoutRequest[]
+}
+
+model Article {
+  id          String    @id @default(uuid())
+  publisherId String
+  publisher   Publisher @relation(fields: [publisherId], references: [id])
+  title       String
+  slug        String    @unique
+  subtitle    String?
+  teaserBody  String
+  fullBody    String
+  priceSats   Int
+  topicTag    String?
+  featured    Boolean   @default(false)
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  invoices    Invoice[]
+}
+
+model Invoice {
+  id                String        @id @default(uuid())
+  articleId         String
+  article           Article       @relation(fields: [articleId], references: [id])
+  readerFingerprint String
+  paymentHash       String        @unique
+  invoiceString     String
+  amountSats        Int
+  status            InvoiceStatus @default(PENDING)
+  nodeProvider      NodeProvider
+  expiresAt         DateTime
+  confirmedAt       DateTime?
+  pollAttempts      Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  accessToken       AccessToken?
+
+  @@index([status, expiresAt])
+  @@index([articleId, readerFingerprint])
+}
+
+model AccessToken {
+  id                String   @id @default(uuid())
+  invoiceId         String   @unique
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id])
+  articleId         String
+  readerFingerprint String
+  tokenHash         String   @unique
+  issuedAt          DateTime @default(now())
+  expiresAt         DateTime
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  dedupKey    String   @unique
+  rawPayload  Json
+  processedAt DateTime @default(now())
+}
+
+model PayoutRequest {
+  id          String        @id @default(uuid())
+  publisherId String
+  publisher   Publisher     @relation(fields: [publisherId], references: [id])
+  amountSats  Int
+  status      PayoutStatus  @default(PENDING)
+  invoice     String?
+  paymentHash String?
+  error       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+enum NodeProvider {
+  LNBITS
+  LND
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
