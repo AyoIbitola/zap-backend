@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "worker:dev": "tsx watch src/jobs/worker.ts",
-    "worker": "node dist/jobs/worker.js",
+    "worker": "node dist/src/jobs/worker.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
