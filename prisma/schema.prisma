@@ -17,6 +17,8 @@ model Publisher {
   updatedAt      DateTime        @updatedAt
   articles       Article[]
   payoutRequests PayoutRequest[]
+  apiKeys        ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
 }
 
 model Article {
@@ -107,4 +109,65 @@ enum PayoutStatus {
   PROCESSING
   PAID
   FAILED
+}
+
+model ApiKey {
+  id          String     @id @default(uuid())
+  publisherId String
+  publisher   Publisher  @relation(fields: [publisherId], references: [id])
+  keyHash     String     @unique
+  keyPrefix   String     @unique
+  type        ApiKeyType
+  scopes      String[]
+  label       String?
+  lastUsedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  revokedAt   DateTime?
+
+  @@index([keyPrefix])
+  @@index([publisherId])
+}
+
+enum ApiKeyType {
+  SECRET
+  PUBLISHABLE
+}
+
+model WebhookEndpoint {
+  id          String            @id @default(uuid())
+  publisherId String
+  publisher   Publisher         @relation(fields: [publisherId], references: [id])
+  url         String
+  secret      String // raw HMAC secret — shown once, stored in plaintext (not hashed, needed for signing)
+  description String?
+  enabled     Boolean           @default(true)
+  events      String[] // ["invoice.paid", "invoice.expired"] or ["*"] for all
+  createdAt   DateTime          @default(now())
+  deliveries  WebhookDelivery[]
+
+  @@index([publisherId])
+}
+
+model WebhookDelivery {
+  id             String          @id @default(uuid())
+  endpointId     String
+  endpoint       WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  event          String // "invoice.paid"
+  payload        Json
+  responseStatus Int?
+  responseBody   String?
+  durationMs     Int?
+  attemptNumber  Int             @default(1)
+  status         DeliveryStatus  @default(PENDING)
+  createdAt      DateTime        @default(now())
+  deliveredAt    DateTime?
+
+  @@index([endpointId, status])
+}
+
+enum DeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
 }

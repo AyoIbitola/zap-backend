@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { errors as joseErrors } from 'jose'
 import type { Prisma } from '@prisma/client'
 import { verifyReaderJwt, signReaderJwt } from '../lib/jwt.js'
 import { prisma } from '../lib/prisma.js'
@@ -14,12 +15,37 @@ export async function validateAccessToken(
   rawJwt: string,
   articleId: string,
 ): Promise<ValidationResult> {
+  const result = await validateAccessTokenDetailed(rawJwt, articleId)
+  if (result.valid) {
+    return { valid: true, articleId: result.articleId, readerFingerprint: result.readerFingerprint }
+  }
+  if (result.reason === 'wrong_article' || result.reason === 'token_revoked') {
+    return { valid: false, reason: result.reason }
+  }
+  return { valid: false, reason: 'invalid_token' } // collapses token_expired/invalid_signature
+}
+
+// ─── Validate (detailed) ───────────────────────────────────────────────────────
+// Same checks as validateAccessToken, but distinguishes an expired token from a bad
+// signature and returns the token's expiry — used by POST /v1/invoices/:hash/verify.
+
+type DetailedValidationResult =
+  | { valid: true; articleId: string; readerFingerprint: string; expiresAt: Date }
+  | { valid: false; reason: 'token_expired' | 'invalid_signature' | 'wrong_article' | 'token_revoked' }
+
+export async function validateAccessTokenDetailed(
+  rawJwt: string,
+  articleId: string,
+): Promise<DetailedValidationResult> {
   // 1. Verify JWT signature and expiry
   let payload: { articleId: string; readerFingerprint: string }
   try {
     payload = await verifyReaderJwt(rawJwt)
-  } catch {
-    return { valid: false, reason: 'invalid_token' }
+  } catch (err) {
+    if (err instanceof joseErrors.JWTExpired) {
+      return { valid: false, reason: 'token_expired' }
+    }
+    return { valid: false, reason: 'invalid_signature' }
   }
 
   // 2. Check articleId matches the requested article
@@ -34,7 +60,12 @@ export async function validateAccessToken(
     return { valid: false, reason: 'token_revoked' }
   }
 
-  return { valid: true, articleId: payload.articleId, readerFingerprint: payload.readerFingerprint }
+  return {
+    valid: true,
+    articleId: payload.articleId,
+    readerFingerprint: payload.readerFingerprint,
+    expiresAt: tokenRow.expiresAt,
+  }
 }
 
 // ─── Issue ───────────────────────────────────────────────────────────────────

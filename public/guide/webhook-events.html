@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Webhook Events — Zap Developer Docs</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2220%22>⚡</text></svg>" />
+<style>
+  :root {
+    --accent: #C8935A;
+    --bg: #FAF3E8;
+    --panel: #FFFFFF;
+    --text: #2A2118;
+    --text-muted: #6B5D4F;
+    --border: #E6D9C6;
+    --code-bg: #2A2118;
+    --code-text: #F3E9DA;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+  }
+  nav.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav.sidebar .brand {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--accent);
+    margin-bottom: 4px;
+    display: block;
+    text-decoration: none;
+  }
+  nav.sidebar .brand-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    display: block;
+  }
+  nav.sidebar a {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.92rem;
+    margin-bottom: 2px;
+  }
+  nav.sidebar a:hover { background: var(--bg); }
+  nav.sidebar a.active { background: var(--accent); color: white; font-weight: 600; }
+  nav.sidebar .api-ref {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  main {
+    flex: 1;
+    max-width: 860px;
+    padding: 48px 56px;
+  }
+  main h1 { font-size: 2rem; margin-top: 0; }
+  main h2 { font-size: 1.4rem; margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  main h3 { font-size: 1.1rem; margin-top: 1.8rem; color: var(--accent); }
+  main p, main li { line-height: 1.65; color: var(--text); }
+  main a { color: var(--accent); }
+  code {
+    background: rgba(200, 147, 90, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 18px 20px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: 0.86rem;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 1.2rem 0; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid var(--border); font-size: 0.92rem; }
+  th { background: rgba(200, 147, 90, 0.12); }
+  blockquote { border-left: 3px solid var(--accent); margin: 1rem 0; padding: 0.2rem 1rem; color: var(--text-muted); }
+  @media (max-width: 800px) {
+    body { flex-direction: column; }
+    nav.sidebar { width: 100%; height: auto; position: static; }
+    main { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+  <nav class="sidebar">
+    <a href="introduction.html" class="brand">⚡ Zap</a>
+    <span class="brand-sub">Developer Docs</span>
+    <a href="introduction.html" class="">Introduction</a>
+        <a href="quickstart.html" class="">Quickstart</a>
+        <a href="authentication.html" class="">Authentication</a>
+        <a href="guides.html" class="">Guides</a>
+        <a href="webhook-events.html" class="active">Webhook Events</a>
+        <a href="error-codes.html" class="">Error Codes</a>
+        <a href="changelog.html" class="">Changelog</a>
+    <div class="api-ref">
+      <a href="/docs">API Reference ↗</a>
+    </div>
+  </nav>
+  <main>
+    <h1>Webhook events</h1>
+<p>Zap can push payment events to your server in real time instead of you polling <code>GET /v1/invoices/:paymentHash</code>. Register an endpoint with <code>POST /v1/webhooks</code> (see the <a href="/docs">API Reference</a>) and Zap will POST to it as events happen.</p>
+<h2>Event types</h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Triggered when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>invoice.paid</code></td>
+<td>A reader successfully pays an invoice</td>
+</tr>
+<tr>
+<td><code>invoice.expired</code></td>
+<td>An invoice&#39;s window closes unpaid</td>
+</tr>
+<tr>
+<td><code>invoice.cancelled</code></td>
+<td>A publisher unpublishes an article with pending invoices</td>
+</tr>
+<tr>
+<td><code>webhook.test</code></td>
+<td>You call <code>POST /v1/webhooks/:id/test</code></td>
+</tr>
+</tbody></table>
+<h2>Payload shape</h2>
+<p>Every delivery has this envelope:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;evt_uuid&quot;,
+  &quot;event&quot;: &quot;invoice.paid&quot;,
+  &quot;createdAt&quot;: &quot;2026-06-30T14:23:15Z&quot;,
+  &quot;data&quot;: {
+    &quot;paymentHash&quot;: &quot;abc123def456...&quot;,
+    &quot;articleId&quot;: &quot;uuid&quot;,
+    &quot;articleTitle&quot;: &quot;Why Lightning changes everything&quot;,
+    &quot;amountSats&quot;: 50,
+    &quot;readerFingerprint&quot;: &quot;developer-provided-fingerprint&quot;,
+    &quot;accessToken&quot;: &quot;eyJ...&quot;,
+    &quot;paidAt&quot;: &quot;2026-06-30T14:23:15Z&quot;
+  }
+}
+</code></pre>
+<p><code>invoice.expired</code> payloads omit <code>articleTitle</code> and <code>accessToken</code> and add <code>expiredAt</code> in place of <code>paidAt</code>.</p>
+<h2>Signature verification</h2>
+<p>Every delivery carries three headers:</p>
+<pre><code>Zap-Webhook-Id: evt_uuid
+Zap-Webhook-Timestamp: 1719755795
+Zap-Webhook-Signature: v1=&lt;hex-encoded-HMAC-SHA256&gt;
+</code></pre>
+<p>The signature is <code>HMAC-SHA256(key = your endpoint&#39;s secret, input = &quot;{evt_id}.{timestamp}.{rawBodyString}&quot;)</code> — the same scheme used by Stripe and Svix. See <a href="guides.html#verifying-webhook-signatures">Guides → Verifying webhook signatures</a> for the full, tested verification code. Always reject events with a timestamp more than 5 minutes old, to prevent replay attacks.</p>
+<h2>Retry behavior and failure handling</h2>
+<p>If your endpoint doesn&#39;t respond with a <code>2xx</code> status (or times out after 10 seconds), Zap retries with exponential backoff, up to 5 attempts total. Every attempt — success or failure — is recorded and visible to you: response status, response body (first 1000 characters), and duration. After the final attempt fails, the delivery is marked permanently failed; there is no further automatic retry.</p>
+<p>A slow or failing endpoint never affects payment confirmation itself — invoice status updates and access tokens are issued regardless of whether your webhook delivery succeeds.</p>
+<h2>Testing your endpoint</h2>
+<pre><code class="language-bash">curl -s -X POST https://api.zap.pub/v1/webhooks/&lt;endpoint-id&gt;/test \
+  -H &quot;Authorization: Bearer zap_sk_your_key_here&quot;
+</code></pre>
+<p>This sends a synthetic <code>webhook.test</code> event synchronously and returns the response your server sent back:</p>
+<pre><code class="language-json">{ &quot;delivered&quot;: true, &quot;responseStatus&quot;: 200, &quot;responseBody&quot;: &quot;{\&quot;received\&quot;: true}&quot;, &quot;durationMs&quot;: 143 }
+</code></pre>
+<p>Use it to confirm your endpoint is reachable and that your signature verification code accepts a real, correctly-signed delivery before going live. This endpoint is rate-limited to 10 requests/hour per endpoint.</p>
+
+  </main>
+</body>
+</html>

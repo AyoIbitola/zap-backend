@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/build-docs.mjs",
     "dev": "tsx watch src/index.ts",
+    "prebuild": "node scripts/build-docs.mjs",
     "build": "tsc",
     "start": "node dist/src/index.js",
     "worker:dev": "tsx watch src/jobs/worker.ts",
@@ -13,11 +15,14 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "docs:build": "node scripts/build-docs.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@hono/zod-openapi": "^0.19.10",
     "@prisma/client": "^6.0.0",
+    "@scalar/hono-api-reference": "^0.11.9",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.51.0",
     "dotenv": "^16.4.7",
@@ -29,6 +34,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.15.18",
+    "marked": "^18.0.6",
     "prisma": "^6.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",

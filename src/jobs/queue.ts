@@ -23,3 +23,12 @@ export const invoicePollingQueue = new Queue('invoice-polling', {
 export const invoiceSweepQueue = new Queue('invoice-sweep', {
   connection: makeBullMQConnection(),
 })
+
+// Exponential backoff from a 5s base, 5 attempts total before landing in the dead letter queue.
+export const webhookDeliveryQueue = new Queue('webhook-delivery', {
+  connection: makeBullMQConnection(),
+  defaultJobOptions: {
+    attempts: parseInt(process.env.WEBHOOK_MAX_RETRY_ATTEMPTS ?? '5', 10),
+    backoff: { type: 'exponential', delay: 5000 },
+  },
+})

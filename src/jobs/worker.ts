@@ -3,6 +3,7 @@ import { Worker } from 'bullmq'
 import { invoiceSweepQueue } from './queue.js'
 import { handlePollInvoice } from './handlers/pollInvoice.js'
 import { handleExpireInvoices } from './handlers/expireInvoices.js'
+import { handleDeliverWebhook } from './handlers/deliverWebhook.js'
 
 function makeBullMQConnection() {
   const url = new URL(process.env.REDIS_URL!)
@@ -29,6 +30,12 @@ export async function startWorker() {
     { connection: makeBullMQConnection(), concurrency: 1 },
   )
 
+  const webhookWorker = new Worker(
+    'webhook-delivery',
+    async (job) => handleDeliverWebhook(job as Parameters<typeof handleDeliverWebhook>[0]),
+    { connection: makeBullMQConnection(), concurrency: 5 },
+  )
+
   pollWorker.on('failed', (job, err) => {
     if (job && err.message !== 'Invoice still pending — retry') {
       console.error(`[poll] job ${job.id} failed:`, err.message)
@@ -39,19 +46,24 @@ export async function startWorker() {
     console.error(`[sweep] job ${job?.id} failed:`, err.message)
   })
 
+  webhookWorker.on('failed', (job, err) => {
+    console.error(`[webhook-delivery] job ${job?.id} failed:`, err.message)
+  })
+
   await invoiceSweepQueue.upsertJobScheduler(
     'expire-invoices-cron',
     { every: 60_000 },
     { name: 'ExpireInvoices', data: {} },
   )
 
-  console.log('[worker] invoice-polling and invoice-sweep workers started')
+  console.log('[worker] invoice-polling, invoice-sweep, and webhook-delivery workers started')
   console.log('[worker] ExpireInvoices cron registered (every 60s)')
 
   return async function shutdown() {
     console.log('[worker] shutting down — draining jobs...')
     await pollWorker.close()
     await sweepWorker.close()
+    await webhookWorker.close()
     console.log('[worker] shutdown complete')
   }
 }

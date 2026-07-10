@@ -12,6 +12,7 @@ import {
   issueAccessToken,
   writeAccessTokenToRedis,
 } from './accessToken.service.js'
+import { enqueueInvoicePaidWebhooks } from './webhookDispatch.service.js'
 import type { NodeProvider } from '@prisma/client'
 
 function activeNodeProvider(): NodeProvider {
@@ -99,15 +100,17 @@ export async function confirmInvoice(paymentHash: string): Promise<void> {
   let rawJwt: string | null = null
   let tokenHash: string | null = null
   let articleId: string | null = null
+  let readerFingerprint: string | null = null
+  let amountSats: number | null = null
 
   await prisma.$transaction(async (tx) => {
     // SELECT FOR UPDATE locks the row for the duration of this transaction.
     // Concurrent confirms on the same paymentHash will WAIT here, then read the committed
     // PAID status and return early — preventing duplicate AccessToken creation.
     const rows = await tx.$queryRaw<Array<{
-      id: string; status: string; articleId: string; readerFingerprint: string
+      id: string; status: string; articleId: string; readerFingerprint: string; amountSats: number
     }>>`
-      SELECT id, status, "articleId", "readerFingerprint"
+      SELECT id, status, "articleId", "readerFingerprint", "amountSats"
       FROM "Invoice"
       WHERE "paymentHash" = ${paymentHash}
       FOR UPDATE
@@ -138,7 +141,22 @@ export async function confirmInvoice(paymentHash: string): Promise<void> {
     rawJwt = result.rawJwt
     tokenHash = result.tokenHash
     articleId = invoice.articleId
+    readerFingerprint = invoice.readerFingerprint
+    amountSats = invoice.amountSats
   })
+
+  // Outbound webhook delivery is fire-and-forget — never awaited, never allowed to make
+  // this function throw. A slow or unreachable developer endpoint must not delay or fail
+  // payment confirmation.
+  if (articleId && readerFingerprint !== null && amountSats !== null) {
+    enqueueInvoicePaidWebhooks({
+      paymentHash,
+      articleId,
+      readerFingerprint,
+      amountSats,
+      accessToken: rawJwt,
+    })
+  }
 
   // Redis writes happen after transaction commits (per Section 6.3)
   if (rawJwt && tokenHash && articleId) {
