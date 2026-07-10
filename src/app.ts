@@ -1,6 +1,4 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { Scalar } from '@scalar/hono-api-reference'
-import { serveStatic } from '@hono/node-server/serve-static'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { prisma } from './lib/prisma.js'
@@ -50,38 +48,13 @@ app.doc31('/api/openapi.json', {
     contact: { name: 'Zap Support', url: 'https://zap.pub/support' },
   },
   servers: [
-    { url: 'https://api.zap.pub', description: 'Production' },
+    { url: 'https://zap-backend-weik.onrender.com', description: 'Production' },
     { url: `http://localhost:${process.env.PORT ?? '3001'}`, description: 'Local development' },
   ],
 })
-
-// Interactive docs
-app.get(
-  '/docs',
-  Scalar({
-    url: '/api/openapi.json',
-    theme: 'default',
-    layout: 'classic',
-    defaultHttpClient: { targetKey: 'node', clientKey: 'fetch' },
-    hideModels: false,
-    searchHotKey: 'k',
-    title: 'Zap API Reference',
-    customCss: `
-      :root {
-        --scalar-color-accent: #C8935A;
-        --scalar-color-background-1: #FAF3E8;
-      }
-      .darkmode {
-        --scalar-color-accent: #C8935A;
-      }
-    `,
-  }),
-)
-
-// Developer portal — static docs site (Introduction, Quickstart, Authentication, Guides,
-// Webhook events, Error codes, Changelog). Built from docs/*.md via `pnpm docs:build`.
-app.get('/guide', (c) => c.redirect('/guide/introduction.html'))
-app.use('/guide/*', serveStatic({ root: './public' }))
+// Human-facing docs (introduction, quickstart, guides, and the interactive API
+// reference) are served by the frontend at /docs — this endpoint is the raw
+// machine-readable spec only (for Postman/Insomnia imports, codegen, etc).
 
 app.get('/health', async (c) => {
   const h = {
